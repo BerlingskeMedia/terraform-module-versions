@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+
 	"net/http"
 	"os"
 	"sort"
@@ -22,6 +23,8 @@ import (
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/sgreben/flagvar"
+
+	ghttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
 var (
@@ -32,6 +35,8 @@ var (
 			HTTP: http.DefaultClient,
 		},
 	}
+	auth = ghttp.BasicAuth{}
+
 	config struct {
 		Paths                   []string
 		ModuleNames             flagvar.StringSet
@@ -41,6 +46,9 @@ var (
 		Quiet                   bool
 		UpdatesFoundNonzeroExit bool
 		All                     bool
+		AnyFoundNonzeroExit     bool
+		UseUrl                  bool
+		BasicAuth               string
 	}
 )
 
@@ -68,12 +76,17 @@ func main() {
 	checkFlagSet.Var(&config.Output, "o", "(alias for -output)")
 	checkFlagSet.BoolVar(&config.UpdatesFoundNonzeroExit, "e", config.UpdatesFoundNonzeroExit, "(alias for -updates-found-nonzero-exit)")
 	checkFlagSet.BoolVar(&config.UpdatesFoundNonzeroExit, "updates-found-nonzero-exit", config.UpdatesFoundNonzeroExit, "exit with a nonzero code when modules with updates are found")
+	checkFlagSet.BoolVar(&config.AnyFoundNonzeroExit, "any-found-nonzero-exit", config.AnyFoundNonzeroExit, "exit with a nonzero code when any module not matching to it's latest version found")
+	checkFlagSet.BoolVar(&config.AnyFoundNonzeroExit, "E", config.AnyFoundNonzeroExit, "(alias for -any-found-nonzero-exit)")
 	checkFlagSet.BoolVar(&config.All, "a", config.All, "(alias for -all)")
 	checkFlagSet.BoolVar(&config.All, "all", config.All, "include modules without updates")
 	listFlagSet.Var(&config.ModuleNames, "module", "include this module (may be specified repeatedly. by default, all modules are included)")
 	checkFlagSet.Var(&config.ModuleNames, "module", "include this module (may be specified repeatedly. by default, all modules are included)")
 	checkFlagSet.Var(&config.RegistryHeaders, "H", "(alias for -registry-header)")
 	checkFlagSet.Var(&config.RegistryHeaders, "registry-header", fmt.Sprintf("extra HTTP headers for requests to Terraform module registries (%s, may be specified repeatedly)", config.RegistryHeaders.Help()))
+	checkFlagSet.StringVar(&config.BasicAuth, "basic-auth", "", "Authentication string to authenticate on repository calls. Should be string '[username]:[password]'")
+	checkFlagSet.BoolVar(&config.UseUrl, "use-url", config.UseUrl, "Use URL instead of SSH checkout. Usable if autorizing via token.")
+	checkFlagSet.BoolVar(&config.UseUrl, "u", config.UseUrl, "(alias for -use-url)")
 
 	cmdList := &ffcli.Command{
 		Name:       "list",
@@ -122,6 +135,7 @@ func main() {
 		},
 	}
 
+
 	if err := cmdRoot.Parse(os.Args[1:]); err != nil {
 		log.Fatal(err)
 	}
@@ -167,7 +181,7 @@ func scanForModuleCalls() []scan.Result {
 func list(scanResults []scan.Result) {
 	var out output.Modules
 	for _, m := range scanResults {
-		parsed, err := modulecall.Parse(m.ModuleCall)
+		parsed, err := modulecall.Parse(m.ModuleCall, config.UseUrl)
 		if err != nil {
 			log.Printf("error: %v", err)
 			out = append(out, output.Module{
@@ -195,16 +209,27 @@ func list(scanResults []scan.Result) {
 
 func updates(scanResults []scan.Result) {
 	var (
-		out                  output.Updates
-		foundMatchingUpdates bool
+		out                     output.Updates
+		foundMatchingUpdates    bool
+		foundNonMatchingUpdates bool
 	)
+	if len(config.BasicAuth) > 0 {
+		var authParts = strings.Split(config.BasicAuth, ":")
+		if len(authParts) != 2 {
+			log.Fatal("IllegalValueException: basic-auth should be [username]:[password]!")
+			os.Exit(2)
+		}
+		auth.Username = authParts[0]
+		auth.Password = authParts[1]
+		updatesClient.GitAuth = &auth
+	}
 	for _, m := range scanResults {
-		parsed, err := modulecall.Parse(m.ModuleCall)
+		parsed, err := modulecall.Parse(m.ModuleCall, config.UseUrl)
 		if err != nil {
 			log.Printf("error: %v", err)
 			continue
 		}
-		update, err := updatesClient.Update(*parsed.Source, parsed.Version, parsed.Constraints)
+		update, err := updatesClient.Update(*parsed.Source, parsed.Version, parsed.Constraints, config.UseUrl)
 		if err != nil {
 			log.Printf("error: %v", err)
 			continue
@@ -227,6 +252,7 @@ func updates(scanResults []scan.Result) {
 		}
 		if updateOutput.NonMatchingUpdate {
 			hasUpdate = true
+			foundNonMatchingUpdates = true
 		}
 		if !config.All && !hasUpdate {
 			continue
@@ -241,5 +267,10 @@ func updates(scanResults []scan.Result) {
 		if foundMatchingUpdates {
 			os.Exit(1)
 		}
+	}
+	if config.AnyFoundNonzeroExit {
+	    if foundNonMatchingUpdates || foundMatchingUpdates {
+	        os.Exit(1)
+	    }
 	}
 }

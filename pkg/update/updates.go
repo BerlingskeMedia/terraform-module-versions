@@ -2,7 +2,6 @@ package update
 
 import (
 	"fmt"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/keilerkonzept/terraform-module-versions/pkg/registry"
@@ -23,7 +22,7 @@ type Update struct {
 	LatestOverallUpdate   string
 }
 
-func (c *Client) Update(s source.Source, current *semver.Version, constraints *semver.Constraints) (*Update, error) {
+func (c *Client) Update(s source.Source, current *semver.Version, constraints *semver.Constraints, useUrl bool) (*Update, error) {
 	versions, err := c.Versions(s)
 	if err != nil {
 		return nil, err

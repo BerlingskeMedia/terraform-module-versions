@@ -342,13 +342,18 @@ USAGE
 Check referenced terraform modules' sources for newer versions
 
 FLAGS
+  -E false                           (alias for -any-found-nonzero-exit)
   -H ...                             (alias for -registry-header)
   -a false                           (alias for -all)
   -all false                         include modules without updates
+  -any-found-nonzero-exit false      exit with a nonzero code when any module not matching to it's latest version found
+  -basic-auth ...                    Authentication string to authenticate on repository calls. Should be string '[username]:[password]'
   -e false                           (alias for -updates-found-nonzero-exit)
   -module ...                        include this module (may be specified repeatedly. by default, all modules are included)
   -o markdown                        (alias for -output)
   -output markdown                   output format, one of [json jsonl junit markdown markdown-wide]
   -registry-header ...               extra HTTP headers for requests to Terraform module registries (a key/value pair KEY:VALUE, may be specified repeatedly)
+  -u false                           (alias for -use-url)
   -updates-found-nonzero-exit false  exit with a nonzero code when modules with updates are found
+  -use-url false                     Use URL instead of SSH checkout. Usable if autorizing via token.
 ```
