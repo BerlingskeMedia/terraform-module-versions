@@ -14,12 +14,18 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/keilerkonzept/terraform-module-versions/pkg/httputil"
+	/*"github.com/keilerkonzept/terraform-module-versions/pkg/httputil"
 	"github.com/keilerkonzept/terraform-module-versions/pkg/modulecall"
 	"github.com/keilerkonzept/terraform-module-versions/pkg/output"
 	"github.com/keilerkonzept/terraform-module-versions/pkg/registry"
 	"github.com/keilerkonzept/terraform-module-versions/pkg/scan"
-	"github.com/keilerkonzept/terraform-module-versions/pkg/update"
+	"github.com/keilerkonzept/terraform-module-versions/pkg/update"*/
+	"./pkg/httputil"
+	"./pkg/modulecall"
+	"./pkg/output"
+	"./pkg/registry"
+	"./pkg/scan"
+	"./pkg/update"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/sgreben/flagvar"
